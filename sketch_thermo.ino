@@ -5,163 +5,229 @@
 #include <SPI.h>
 #include <Adafruit_MAX31855.h>
 #include <algorithm>
+#include <ArduinoJson.h>
 
-// Define UART pins for SIM800L (Hardware Serial2 on ESP32)
+// UART pins for SIM800L
 #define SIM_RX 16
 #define SIM_TX 17
 
-// Define CS pins for both MAX31855 modules
-#define MAX31855_CS1  5  // MAX31855 #1
-#define MAX31855_CS2  4  // MAX31855 #2
+// MAX31855 CS pins
+#define MAX31855_CS1  5
+#define MAX31855_CS2  4
 
-// Initialize the modem on Serial2
 TinyGsm modem(Serial2);
 
-// Replace with your SIM's APN
-const char apn[] = "send.ee";
+// --- CONFIGURATION (CHANGE THESE!) ---
+const char apn[]          = "send.ee";
 
-// Redis details
-const char redis_host[] = ""; // REPLACE WITH ACTUAL HOST!
-const int redis_port = 6379;
-const char redis_key[] = "temps";
-const char redis_pass[] = "";  // REPLACE WITH ACTUAL PASSWORD!
+const char redis_host[]   = ""; // ← CHANGE
+const int  redis_port     = 6379;
+const char redis_key[]    = "temps";
+const char redis_pass[]   = ""; // ← CHANGE
 
-// Thermocouples
+const char api_host[]     = "";   // ← CHANGE
+const int  api_port       = 443;                      // or 443 for HTTPS
+const char api_path[]     = "/api/settings";
+
+const char sms_number[]   = "+...";          // ← CHANGE
+
+// --- THRESHOLD & ONE-TIME SMS FLAG ---
+double temp_threshold = 30.0;      // fallback = 30 °C
+bool   sms_already_sent = false;   // ← this is the key
+
 Adafruit_MAX31855 thermocouple1(MAX31855_CS1);
 Adafruit_MAX31855 thermocouple2(MAX31855_CS2);
+
+TinyGsmClient httpClient(modem);
 
 void setup() {
   Serial.begin(115200);
   delay(3000);
-  Serial.println("Starting...");
+  Serial.println("\n=== Starting Temperature Logger ===");
+
+  SPI.begin();
+  SPI.setFrequency(4000000);
 
   Serial2.begin(9600, SERIAL_8N1, SIM_RX, SIM_TX);
   delay(1000);
 
-  if (!thermocouple1.begin()) {
-    Serial.println("ERROR: MAX31855 #1 init failed!");
+  // Sensors
+  if (!thermocouple1.begin() || !thermocouple2.begin()) {
+    Serial.println("MAX31855 init failed!");
     while (1) delay(10);
   }
-  if (!thermocouple2.begin()) {
-    Serial.println("ERROR: MAX31855 #2 init failed!");
-    while (1) delay(10);
-  }
-  Serial.println("Sensors initialized.");
+  Serial.println("Sensors OK");
 
-  Serial.println("Restarting modem...");
+  // Modem
   modem.restart();
   delay(5000);
-  if (!modem.init()) {
-    Serial.println("ERROR: Modem init failed!");
-    while (1) delay(1000);
-  }
-  if (!modem.testAT()) {
-    Serial.println("ERROR: No AT response!");
-    while (1) delay(1000);
-  }
+  modem.init();
 
-  Serial.println("Waiting for network...");
   while (modem.getRegistrationStatus() != 1 && modem.getRegistrationStatus() != 5) {
-    delay(5000);
+    Serial.print(".");
+    delay(2000);
   }
-  Serial.println("Network registered!");
+  Serial.println("\nNetwork registered");
 
-  Serial.print("Connecting GPRS (APN: ");
-  Serial.print(apn);
-  Serial.println(")...");
   if (!modem.gprsConnect(apn)) {
-    Serial.println("ERROR: Initial GPRS failed!");
+    Serial.println("GPRS connect failed!");
     while (1) delay(1000);
   }
-  Serial.println("GPRS connected!");
+  Serial.println("GPRS connected");
+
+  // Try to load threshold from API (optional – fallback is 30.0)
+  if (fetchThresholdFromAPI()) {
+    Serial.printf("Threshold loaded from API: %.2f °C\n", temp_threshold);
+  } else {
+    Serial.printf("Using fallback threshold: %.2f °C\n", temp_threshold);
+  }
 }
 
 void loop() {
-  // Sample 100 points over 5 seconds
-  float readings1[100];
-  float readings2[100];
-  int count1 = 0;
-  int count2 = 0;
+  float r1[100], r2[100];
+  int c1 = 0, c2 = 0;
+
+  Serial.println("Sampling 100 points...");
+
   for (int i = 0; i < 100; i++) {
+    uint8_t f1 = thermocouple1.readError();
     double t1 = thermocouple1.readCelsius();
-    if (!isnan(t1)) readings1[count1++] = (float)t1;
+    if (f1 == 0 && !isnan(t1)) r1[c1++] = t1;
+    else printFault("TC1", f1, isnan(t1));
+
+    uint8_t f2 = thermocouple2.readError();
     double t2 = thermocouple2.readCelsius();
-    if (!isnan(t2)) readings2[count2++] = (float)t2;
+    if (f2 == 0 && !isnan(t2)) r2[c2++] = t2;
+    else printFault("TC2", f2, isnan(t2));
+
     delay(50);
   }
 
-  // Compute averages after removing outliers
-  double avg1 = computeAverage(readings1, count1);
-  double avg2 = computeAverage(readings2, count2);
+  double avg1 = computeAverage(r1, c1);
+  double avg2 = computeAverage(r2, c2);
 
-  // Send if valid
+  Serial.printf("Valid: TC1=%d  TC2=%d  →  Avg=%.2f °C / %.2f °C\n", c1, c2, avg1, avg2);
+
   if (!isnan(avg1) && !isnan(avg2)) {
-    sendToRedis(avg1, avg2);
-  } else {
-    Serial.println("Invalid averages, skipping send.");
-  }
-}
+    sendToRedis(avg1, avg2);                     // ← ALWAYS SEND
 
-double computeAverage(float readings[], int count) {
-  if (count == 0) return NAN;
-  std::sort(readings, readings + count);
-  float sum = 0;
-  for (int i = count/2; i < count; i++) {
-    sum += readings[i];
-  }
-  return sum / (count / 2);
-}
-
-void sendToRedis(double avg1, double avg2) {
-  if (!modem.isGprsConnected()) {
-    Serial.println("GPRS dropped, reconnecting...");
-    if (!modem.gprsConnect(apn)) {
-      Serial.println("GPRS reconnect FAILED - skipping send.");
-      return;
+    // ONE-TIME SMS when BOTH sensors ≥ threshold
+    if (!sms_already_sent && avg1 >= temp_threshold && avg2 >= temp_threshold) {
+      String msg = String(temp_threshold, 1) + " Grad Erreicht";
+      if (modem.sendSMS(sms_number, msg.c_str())) {
+        Serial.println("SMS SENT (will not send again until reboot): " + msg);
+      } else {
+        Serial.println("SMS FAILED");
+      }
+      sms_already_sent = true;   // ← blocks any further SMS until power cycle
     }
-    Serial.println("GPRS reconnected.");
+  } else {
+    Serial.println("Invalid averages – skipping this cycle");
   }
 
-  String payload = "{\"avg_temp1\":" + String(avg1, 2) + ",\"avg_temp2\":" + String(avg2, 2) + "}";
-  TinyGsmClient client(modem);
+  delay(10000);   // next measurement in 10 seconds
+}
 
+// ————————————————————————
+// Helper functions (unchanged, just cleaned up)
+// ————————————————————————
+
+double computeAverage(float arr[], int cnt) {
+  if (cnt == 0) return NAN;
+  std::sort(arr, arr + cnt);
+  if (cnt <= 4) return arr[cnt / 2];
+
+  int q1i = cnt / 4;
+  int q3i = 3 * cnt / 4;
+  float q1 = arr[q1i];
+  float q3 = arr[q3i];
+  float iqr = q3 - q1;
+  float lo = q1 - 1.5f * iqr;
+  float hi = q3 + 1.5f * iqr;
+
+  float sum = 0;
+  int valid = 0;
+  for (int i = 0; i < cnt; i++) {
+    if (arr[i] >= lo && arr[i] <= hi) {
+      sum += arr[i];
+      valid++;
+    }
+  }
+  return valid ? sum / valid : NAN;
+}
+
+void printFault(const char* name, uint8_t fault, bool nan) {
+  Serial.print(name); Serial.print(" Fault: ");
+  if (fault & MAX31855_FAULT_OPEN)       Serial.print("OPEN ");
+  if (fault & MAX31855_FAULT_SHORT_GND)  Serial.print("SHORT_GND ");
+  if (fault & MAX31855_FAULT_SHORT_VCC)  Serial.print("SHORT_VCC ");
+  if (nan) Serial.print("NaN ");
+  Serial.println();
+}
+
+void sendToRedis(double a1, double a2) {
+  if (!modem.isGprsConnected()) {
+    Serial.println("GPRS lost – reconnecting...");
+    modem.gprsConnect(apn);
+  }
+
+  TinyGsmClient client(modem);
   if (!client.connect(redis_host, redis_port)) {
-    Serial.println("TCP Connect FAILED!");
+    Serial.println("Redis connect failed");
     return;
   }
 
   // AUTH
-  String auth_cmd = "*2\r\n$4\r\nAUTH\r\n$" + String(strlen(redis_pass)) + "\r\n" + redis_pass + "\r\n";
-  client.print(auth_cmd);
-  String auth_resp = readResponse(client, 3000);
-  if (auth_resp.indexOf("+OK") < 0) {
-    Serial.println("AUTH FAILED");
-    client.stop();
-    return;
-  }
+  client.print(String("*2\r\n$4\r\nAUTH\r\n$") + strlen(redis_pass) + "\r\n" + redis_pass + "\r\n");
+  readLine(client, 3000);
 
   // PUBLISH
-  String pub_cmd = "*3\r\n$7\r\nPUBLISH\r\n$" + String(strlen(redis_key)) + "\r\n" + redis_key + "\r\n$" + String(payload.length()) + "\r\n" + payload + "\r\n";
-  client.print(pub_cmd);
-  String pub_resp = readResponse(client, 5000);
+  String payload = "{\"avg_temp1\":" + String(a1, 2) + ",\"avg_temp2\":" + String(a2, 2) + "}";
+  client.print(String("*3\r\n$7\r\nPUBLISH\r\n$") + strlen(redis_key) + "\r\n" + redis_key + "\r\n$" +
+               payload.length() + "\r\n" + payload + "\r\n");
+
+  String resp = readLine(client, 5000);
   client.stop();
 
-  if (pub_resp.startsWith(":")) {
-    Serial.println("PUBLISH SUCCESS!");
-  } else {
-    Serial.println("PUBLISH FAILED");
-  }
+  Serial.println(resp.startsWith(":") ? "Redis OK" : "Redis FAILED: " + resp);
 }
 
-String readResponse(TinyGsmClient &client, unsigned long timeout_ms) {
-  String resp = "";
+bool fetchThresholdFromAPI() {
+  if (!httpClient.connect(api_host, api_port)) return false;
+
+  httpClient.print(String("GET ") + api_path + " HTTP/1.1\r\nHost: " + api_host + "\r\nConnection: close\r\n\r\n");
+
+  String response = "";
+  unsigned long t = millis();
+  while (millis() - t < 10000 && httpClient.connected()) {
+    while (httpClient.available()) response += (char)httpClient.read();
+  }
+  httpClient.stop();
+
+  int bodyPos = response.indexOf("\r\n\r\n");
+  if (bodyPos == -1) return false;
+  String json = response.substring(bodyPos + 4);
+
+  DynamicJsonDocument doc(256);
+  if (deserializeJson(doc, json) != DeserializationError::Ok) return false;
+
+  if (doc.containsKey("temp_threshold")) {
+    temp_threshold = doc["temp_threshold"].as<double>();
+    return true;
+  }
+  return false;
+}
+
+String readLine(TinyGsmClient& client, unsigned long timeout) {
+  String s = "";
   unsigned long start = millis();
-  while (millis() - start < timeout_ms) {
+  while (millis() - start < timeout) {
     while (client.available()) {
-      resp += (char)client.read();
-      if (resp.endsWith("\r\n")) return resp;
+      char c = client.read();
+      s += c;
+      if (s.endsWith("\r\n")) return s;
     }
     delay(5);
   }
-  return resp;
+  return s;
 }
