@@ -33,10 +33,10 @@ RUN mkdir -p /app/data
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD /app/.venv/bin/python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+    CMD /app/.venv/bin/python3 -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
 
 # Expose port
 EXPOSE 8000
 
 # Run the application
-CMD ["/app/.venv/bin/python", "src/temperature/main.py"]
+CMD ["/app/.venv/bin/python3", "src/temperature/main.py"]
