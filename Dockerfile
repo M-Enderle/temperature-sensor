@@ -20,8 +20,7 @@ WORKDIR /app
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PYTHONUNBUFFERED=1
 
 # Copy virtual environment from builder
 COPY --from=builder /app/.venv /app/.venv
@@ -34,10 +33,10 @@ RUN mkdir -p /app/data
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+    CMD /app/.venv/bin/python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
 
 # Expose port
 EXPOSE 8000
 
 # Run the application
-CMD ["python", "src/temperature/main.py"]
+CMD ["/app/.venv/bin/python", "src/temperature/main.py"]
