@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="de">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Temperature Monitor</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<style>
+		:root {
+			--bg: #ffffff;
+			--text: #111111;
+			--muted: #6b7280;
+			--accent: #111111;
+			--border: #e5e7eb;
+			--pill: #f5f5f5;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		h1 {
+			margin: 0;
+		}
+
+		body {
+			margin: 0;
+			background: var(--bg);
+			color: var(--text);
+			font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+		}
+
+		.container {
+			max-width: 960px;
+			margin: 0 auto;
+			padding: 32px 24px 64px;
+		}
+
+		header {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+			margin-bottom: 40px;
+		}
+
+		.brand {
+			font-size: 20px;
+			font-weight: 600;
+			letter-spacing: 0.02em;
+			text-decoration: none;
+			color: inherit;
+		}
+
+		header nav a {
+			font-size: 14px;
+			color: var(--muted);
+			text-decoration: none;
+			margin-left: 18px;
+		}
+
+		.hero {
+			margin-bottom: 40px;
+			max-width: 640px;
+		}
+
+		.hero h1 {
+			margin: 0;
+			font-size: clamp(42px, 8vw, 72px);
+			line-height: 1.05;
+			font-weight: 700;
+		}
+
+		/* Current Values Section */
+		.current-values {
+			display: grid;
+			grid-template-columns: repeat(2, 1fr);
+			gap: 28px;
+			margin: 48px 0;
+		}
+
+		.value-card {
+			border-radius: 26px;
+			overflow: hidden;
+			border: 1px solid var(--border);
+			background: #fff;
+			display: flex;
+			flex-direction: column;
+			transition: transform 0.15s ease;
+			padding: 24px;
+		}
+
+		.value-card:hover {
+			transform: translateY(-4px);
+		}
+
+		.value-card.warning {
+			border-color: #f59e0b;
+			background: #fffbeb;
+		}
+
+		.value-label {
+			font-size: 11px;
+			color: var(--muted);
+			font-weight: 600;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			font-family: "Inter", sans-serif;
+			margin: 0 0 10px;
+		}
+
+		.value-display {
+			font-size: clamp(28px, 6vw, 48px);
+			font-weight: 700;
+			color: var(--text);
+			margin: 0 0 8px;
+			font-family: 'Monaco', 'Courier New', monospace;
+			line-height: 1.2;
+		}
+
+		.value-card.warning .value-display {
+			color: #dc2626;
+		}
+
+		.value-time {
+			font-size: 12px;
+			color: var(--muted);
+			font-family: "Inter", sans-serif;
+		}
+
+		/* Chart Section */
+		.chart-section {
+			margin: 48px 0;
+			border: 1px solid var(--border);
+			border-radius: 24px;
+			padding: 24px;
+			background: #fff;
+		}
+
+		.chart-title {
+			margin: 0 0 24px;
+			font-size: 12px;
+			color: var(--muted);
+			font-weight: 600;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			font-family: "Inter", sans-serif;
+		}
+
+		.chart-wrapper {
+			position: relative;
+			height: 400px;
+			width: 100%;
+		}
+
+		#temperatureChart {
+			max-height: 100%;
+		}
+
+		/* Settings Section */
+		.settings-section {
+			margin: 48px 0;
+			border: 1px solid var(--border);
+			border-radius: 24px;
+			padding: 28px;
+			background: #fff;
+		}
+
+		.settings-title {
+			margin: 0 0 24px;
+			font-size: 12px;
+			color: var(--muted);
+			font-weight: 600;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			font-family: "Inter", sans-serif;
+		}
+
+		.settings-form {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+			gap: 18px;
+			align-items: end;
+		}
+
+		.form-group {
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+		}
+
+		.form-group label {
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--text);
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			font-family: "Inter", sans-serif;
+		}
+
+		.form-group input {
+			padding: 10px 12px;
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			font-family: "Inter", sans-serif;
+			font-size: 14px;
+			background: white;
+		}
+
+		.form-group input:focus {
+			outline: none;
+			border-color: var(--accent);
+			box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.1);
+		}
+
+		.btn {
+			padding: 12px 18px;
+			border-radius: 999px;
+			border: 1px solid var(--text);
+			background: var(--text);
+			color: var(--bg);
+			font-size: 14px;
+			text-transform: uppercase;
+			letter-spacing: 0.1em;
+			cursor: pointer;
+			transition: all 0.2s ease;
+			font-family: "Inter", sans-serif;
+			font-weight: 600;
+		}
+
+		.btn:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 8px 16px rgba(17, 17, 17, 0.12);
+		}
+
+		.btn:active {
+			transform: translateY(0);
+		}
+
+		.btn.muted {
+			background: transparent;
+			color: var(--text);
+		}
+
+		/* Footer */
+		footer {
+			margin: 80px 0 18px;
+			color: var(--muted);
+			font-size: 12px;
+			border-top: none;
+			padding-top: 16px;
+			font-family: "Inter", sans-serif;
+			text-align: center;
+		}
+
+		/* Responsive */
+		@media (max-width: 640px) {
+			.container {
+				padding: 20px 12px 40px;
+			}
+
+			.hero h1 {
+				font-size: 28px;
+			}
+
+			/* Keep sensors side-by-side on mobile */
+			.current-values {
+				grid-template-columns: repeat(2, 1fr);
+				gap: 16px;
+				margin: 32px 0;
+			}
+
+			.value-card {
+				padding: 18px;
+				border-radius: 16px;
+			}
+
+			.value-label {
+				font-size: 10px;
+				margin: 0 0 8px;
+			}
+
+			.value-display {
+				font-size: clamp(22px, 5vw, 28px);
+				margin: 0 0 6px;
+			}
+
+			.value-time {
+				font-size: 11px;
+			}
+
+			/* Better chart sizing for mobile */
+			.chart-section {
+				padding: 18px;
+				margin: 32px 0;
+			}
+
+			.chart-wrapper {
+				height: 350px;
+			}
+
+			.chart-title {
+				margin: 0 0 18px;
+				font-size: 11px;
+			}
+
+			.settings-form {
+				grid-template-columns: 1fr;
+				gap: 14px;
+			}
+
+			.settings-section {
+				padding: 18px;
+			}
+
+			.settings-title {
+				font-size: 11px;
+			}
+
+			header {
+				flex-direction: column;
+				gap: 12px;
+				align-items: flex-start;
+				margin-bottom: 24px;
+			}
+
+			header nav a {
+				margin-left: 0;
+				display: block;
+				margin-top: 6px;
+				font-size: 12px;
+			}
+
+			.brand {
+				font-size: 18px;
+			}
+		}
+
+		@media (max-width: 480px) {
+			.container {
+				padding: 16px 12px 32px;
+			}
+
+			.hero h1 {
+				font-size: 28px;
+				margin-top: 80px;
+			}
+
+			.current-values {
+				gap: 12px;
+				margin: 24px 0;
+			}
+
+			.value-card {
+				padding: 16px;
+				border-radius: 14px;
+			}
+
+			.value-label {
+				font-size: 9px;
+				margin-bottom: 6px;
+			}
+
+			.value-display {
+				font-size: clamp(20px, 4.5vw, 24px);
+				margin-bottom: 4px;
+			}
+
+			.value-time {
+				font-size: 10px;
+			}
+
+			.chart-wrapper {
+				height: 300px;
+			}
+
+			.chart-section {
+				padding: 16px;
+				margin: 24px 0;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<section class="hero">
+			<h1>Temperatur-Überwachung</h1>
+		</section>
+
+		<!-- Current Values -->
+		<section class="current-values">
+			<div class="value-card" id="temp1Card">
+				<p class="value-label">Sensor 1</p>
+				<div class="value-display" id="temp1Value">--</div>
+				<p class="value-time" id="temp1Time">Keine Daten</p>
+			</div>
+			<div class="value-card" id="temp2Card">
+				<p class="value-label">Sensor 2</p>
+				<div class="value-display" id="temp2Value">--</div>
+				<p class="value-time" id="temp2Time">Keine Daten</p>
+			</div>
+		</section>
+
+		<!-- Chart -->
+		<section class="chart-section">
+			<h3 class="chart-title">Verlauf (letzte 6 Stunden)</h3>
+			<div class="chart-wrapper">
+				<canvas id="temperatureChart"></canvas>
+			</div>
+		</section>
+
+		<!-- Settings -->
+		<section class="settings-section">
+			<h3 class="settings-title">Einstellungen</h3>
+			<div class="settings-form">
+				<div class="form-group">
+					<label for="thresholdInput">Temperatur-Schwellenwert (°C)</label>
+					<input type="number" id="thresholdInput" step="0.1" min="0" max="500">
+				</div>
+				<button class="btn" id="saveSettingsBtn">Speichern</button>
+			</div>
+			<div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+				<button class="btn muted" id="clearDbBtn" style="color: #dc2626; border-color: #dc2626;">Datenbank löschen</button>
+			</div>
+		</section>
+
+		<footer>
+			<p>Aktualisiert in Echtzeit • Daten werden lokal gespeichert</p>
+		</footer>
+	</div>
+
+	<script>
+		const API_BASE = '/api';
+		const REFRESH_INTERVAL = 1000; // 1 second
+		const CHART_HISTORY_MINUTES = 10; // 10 minutes
+		
+		let chart = null;
+		let temperatureThreshold = 200;
+
+		// Initialize
+		async function init() {
+			await loadSettings();
+			updateCurrentValues();
+			setupChart();
+			setupEventListeners();
+			
+			// Auto-refresh
+			setInterval(updateCurrentValues, REFRESH_INTERVAL);
+			setInterval(updateChart, 5000); // Update chart every 5 seconds
+		}
+
+		// Load current temperature values
+		async function updateCurrentValues() {
+			try {
+				const response = await fetch(`${API_BASE}/current`);
+				if (!response.ok) throw new Error('Failed to fetch current data');
+				
+				const data = await response.json();
+				const timestamp = new Date(data.timestamp);
+				
+				// Update Sensor 1
+				const temp1 = parseFloat(data.avg_temp1).toFixed(2);
+				document.getElementById('temp1Value').textContent = temp1 + '°C';
+				document.getElementById('temp1Time').textContent = formatTime(timestamp);
+				
+				// Update Sensor 2
+				const temp2 = parseFloat(data.avg_temp2).toFixed(2);
+				document.getElementById('temp2Value').textContent = temp2 + '°C';
+				document.getElementById('temp2Time').textContent = formatTime(timestamp);
+				
+				// Check thresholds
+				updateCardWarning('temp1Card', parseFloat(temp1));
+				updateCardWarning('temp2Card', parseFloat(temp2));
+			} catch (error) {
+				console.error('Error fetching current values:', error);
+			}
+		}
+
+		// Update card warning state
+		function updateCardWarning(cardId, value) {
+			const card = document.getElementById(cardId);
+			if (value > temperatureThreshold) {
+				card.classList.add('warning');
+			} else {
+				card.classList.remove('warning');
+			}
+		}
+
+		// Load settings
+		async function loadSettings() {
+			try {
+				const response = await fetch(`${API_BASE}/settings`);
+				if (!response.ok) throw new Error('Failed to fetch settings');
+				
+				const data = await response.json();
+				temperatureThreshold = data.temp_threshold;
+				document.getElementById('thresholdInput').value = temperatureThreshold;
+			} catch (error) {
+				console.error('Error loading settings:', error);
+			}
+		}
+
+		// Save settings
+		async function saveSettings() {
+			try {
+				const threshold = parseFloat(document.getElementById('thresholdInput').value);
+				
+				const response = await fetch(`${API_BASE}/settings`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ temp_threshold: threshold })
+				});
+				
+				if (!response.ok) throw new Error('Failed to save settings');
+				
+				temperatureThreshold = threshold;
+				alert('Einstellungen gespeichert!');
+				updateCurrentValues();
+			} catch (error) {
+				console.error('Error saving settings:', error);
+				alert('Fehler beim Speichern: ' + error.message);
+			}
+		}
+
+		// Clear database
+		async function clearDatabase() {
+			if (!confirm('Sind Sie sicher, dass Sie alle Daten löschen möchten? Dies kann nicht rückgängig gemacht werden.')) {
+				return;
+			}
+			
+			try {
+				const response = await fetch(`${API_BASE}/clear`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' }
+				});
+				
+				if (!response.ok) throw new Error('Failed to clear database');
+				
+				const data = await response.json();
+				alert(`Datenbank gelöscht! ${data.deleted_records} Einträge wurden entfernt.`);
+				updateChart();
+			} catch (error) {
+				console.error('Error clearing database:', error);
+				alert('Fehler beim Löschen: ' + error.message);
+			}
+		}
+
+		// Setup Chart
+		async function setupChart() {
+			try {
+				const canvas = document.getElementById('temperatureChart');
+				if (!canvas) {
+					console.error('❌ Canvas element not found!');
+					return;
+				}
+				
+				console.log('✓ Initializing chart...');
+				const ctx = canvas.getContext('2d');
+				
+				chart = new Chart(ctx, {
+					type: 'line',
+					data: {
+						labels: [],
+						datasets: [
+							{
+								label: 'Sensor 1',
+								data: [],
+								borderColor: '#d97706',
+								backgroundColor: 'rgba(217, 119, 6, 0.1)',
+								borderWidth: 2,
+								fill: true,
+								tension: 0.4,
+								pointRadius: 0,
+								pointHoverRadius: 6,
+							},
+							{
+								label: 'Sensor 2',
+								data: [],
+								borderColor: '#0891b2',
+								backgroundColor: 'rgba(8, 145, 178, 0.1)',
+								borderWidth: 2,
+								fill: true,
+								tension: 0.4,
+								pointRadius: 0,
+								pointHoverRadius: 6,
+							}
+						]
+					},
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						plugins: {
+							legend: {
+								display: false
+							},
+							filler: {
+								propagate: false
+							}
+						},
+						scales: {
+							y: {
+								beginAtZero: false,
+								ticks: { font: { family: '"Playfair Display", serif' } },
+								grid: { color: '#e5e7eb' },
+								plugins: {
+									filler: {
+										propagate: true
+									}
+								}
+							},
+							x: {
+								grid: { color: '#e5e7eb' },
+								ticks: { 
+									font: { family: '"Playfair Display", serif' },
+									maxRotation: 45,
+									minRotation: 0
+								}
+							}
+						}
+					}
+				});
+				
+				console.log('✓ Chart instance created, fetching data...');
+				await updateChart();
+				console.log('✓ Chart setup complete');
+			} catch (error) {
+				console.error('❌ Error setting up chart:', error);
+			}
+		}
+
+		// Update Chart data
+		async function updateChart() {
+			try {
+				// Fetch 1 hour of data
+				const response = await fetch(`${API_BASE}/history?hours=1`);
+				if (!response.ok) throw new Error('Failed to fetch history');
+				
+				const allData = await response.json();
+				console.log('✓ Fetched data points:', allData.length);
+				
+				if (!allData || allData.length === 0) {
+					console.warn('No data returned from API');
+					return;
+				}
+				
+				// Filter to only last 10 minutes
+				const now = new Date();
+				const tenMinutesAgo = new Date(now.getTime() - CHART_HISTORY_MINUTES * 60000);
+				
+				const data = allData.filter(d => {
+					const timestamp = new Date(d.timestamp);
+					return timestamp >= tenMinutesAgo;
+				});
+				
+				console.log('✓ Filtered to last 10 minutes:', data.length, 'points');
+				
+				if (data.length === 0) {
+					console.warn('No data in the last 10 minutes');
+					return;
+				}
+				
+				// Create labels and data arrays
+				const labels = [];
+				const temp1Data = [];
+				const temp2Data = [];
+				
+				for (let i = 0; i < data.length; i++) {
+					const d = data[i];
+					try {
+						const timestamp = new Date(d.timestamp);
+						const minutesAgo = Math.round((now - timestamp) / 60000);
+						
+						labels.push(`-${minutesAgo}`);
+						temp1Data.push(Number(d.avg_temp1));
+						temp2Data.push(Number(d.avg_temp2));
+					} catch (e) {
+						console.error('Error processing data point:', d, e);
+					}
+				}
+				
+				console.log('✓ Processed data - Points:', labels.length);
+				console.log('  Labels (first 5):', labels.slice(0, 5));
+				console.log('  T1 data (first 5):', temp1Data.slice(0, 5));
+				console.log('  T2 data (first 5):', temp2Data.slice(0, 5));
+				
+				if (labels.length > 0) {
+					chart.data.labels = labels;
+					chart.data.datasets[0].data = temp1Data;
+					chart.data.datasets[1].data = temp2Data;
+					chart.update();
+					console.log('✓ Chart updated successfully');
+				}
+			} catch (error) {
+				console.error('❌ Error updating chart:', error);
+			}
+		}
+
+		// Event listeners
+		function setupEventListeners() {
+			document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+			document.getElementById('clearDbBtn').addEventListener('click', clearDatabase);
+			
+			document.getElementById('thresholdInput').addEventListener('keypress', (e) => {
+				if (e.key === 'Enter') saveSettings();
+			});
+		}
+
+		// Format time
+		function formatTime(date) {
+			const hours = String(date.getHours()).padStart(2, '0');
+			const minutes = String(date.getMinutes()).padStart(2, '0');
+			const seconds = String(date.getSeconds()).padStart(2, '0');
+			return `${hours}:${minutes}:${seconds}`;
+		}
+
+		// Start
+		init();
+	</script>
+</body>
+</html>
