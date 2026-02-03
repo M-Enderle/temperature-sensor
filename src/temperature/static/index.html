@@ -8,6 +8,7 @@
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
 	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -143,14 +144,69 @@
 			background: #fff;
 		}
 
-		.chart-title {
+		.chart-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
 			margin: 0 0 24px;
+			gap: 12px;
+		}
+
+		.chart-title {
+			margin: 0;
 			font-size: 12px;
 			color: var(--muted);
 			font-weight: 600;
 			letter-spacing: 0.08em;
-			text-transform: uppercase;
+			font-family: 'Monaco', 'Courier New', monospace;
+			flex: 1;
+		}
+
+		.chart-title-input {
+			margin: 0;
+			font-size: 12px;
+			color: var(--text);
+			font-weight: 600;
+			letter-spacing: 0.08em;
+			font-family: 'Monaco', 'Courier New', monospace;
+			flex: 1;
+			padding: 8px 12px;
+			border: 1px solid var(--border);
+			border-radius: 8px;
+		}
+
+		.chart-title-input:focus {
+			outline: none;
+			border-color: var(--accent);
+			box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.1);
+		}
+
+		.chart-actions {
+			display: flex;
+			gap: 8px;
+		}
+
+		.icon-btn {
+			padding: 8px 12px;
+			border-radius: 8px;
+			border: 1px solid var(--border);
+			background: white;
+			color: var(--text);
+			font-size: 12px;
+			cursor: pointer;
+			transition: all 0.2s ease;
 			font-family: "Inter", sans-serif;
+			font-weight: 600;
+			white-space: nowrap;
+		}
+
+		.icon-btn:hover {
+			background: var(--pill);
+			border-color: var(--text);
+		}
+
+		.icon-btn:active {
+			transform: scale(0.96);
 		}
 
 		.chart-wrapper {
@@ -260,6 +316,96 @@
 		}
 
 		/* Responsive */
+		/* Modal Styles */
+		.modal-overlay {
+			display: none;
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.5);
+			z-index: 1000;
+			justify-content: center;
+			align-items: center;
+		}
+
+		.modal-overlay.active {
+			display: flex;
+		}
+
+		.modal {
+			background: white;
+			border-radius: 24px;
+			padding: 32px;
+			max-width: 400px;
+			width: 90%;
+			box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+		}
+
+		.modal-title {
+			margin: 0 0 24px;
+			font-size: 24px;
+			font-weight: 700;
+		}
+
+		.modal-form {
+			display: flex;
+			flex-direction: column;
+			gap: 20px;
+		}
+
+		.radio-group {
+			display: flex;
+			gap: 12px;
+		}
+
+		.radio-option {
+			flex: 1;
+			position: relative;
+		}
+
+		.radio-option input {
+			position: absolute;
+			opacity: 0;
+			width: 100%;
+			height: 100%;
+			cursor: pointer;
+		}
+
+		.radio-option label {
+			display: block;
+			padding: 14px 18px;
+			border: 2px solid var(--border);
+			border-radius: 12px;
+			text-align: center;
+			font-family: "Inter", sans-serif;
+			font-size: 14px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.2s ease;
+		}
+
+		.radio-option input:checked + label {
+			border-color: var(--text);
+			background: var(--text);
+			color: white;
+		}
+
+		.radio-option label:hover {
+			border-color: var(--text);
+		}
+
+		.modal-actions {
+			display: flex;
+			gap: 12px;
+			margin-top: 8px;
+		}
+
+		.modal-actions .btn {
+			flex: 1;
+		}
+
 		@media (max-width: 640px) {
 			.container {
 				padding: 20px 12px 40px;
@@ -305,9 +451,22 @@
 				height: 350px;
 			}
 
-			.chart-title {
+			.chart-header {
 				margin: 0 0 18px;
+			}
+
+			.chart-title,
+			.chart-title-input {
 				font-size: 11px;
+			}
+
+			.chart-actions {
+				flex-wrap: wrap;
+			}
+
+			.icon-btn {
+				font-size: 11px;
+				padding: 6px 10px;
 			}
 
 			.settings-form {
@@ -409,9 +568,24 @@
 
 		<!-- Chart -->
 		<section class="chart-section">
-			<h3 class="chart-title">Verlauf (letzte 6 Stunden)</h3>
+			<div class="chart-header">
+				<div class="chart-actions">
+					<button class="icon-btn" id="savePdfBtn">PDF exportieren</button>
+				</div>
+			</div>
 			<div class="chart-wrapper">
 				<canvas id="temperatureChart"></canvas>
+			</div>
+		</section>
+
+		<!-- Error Logs -->
+		<section class="settings-section">
+			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+				<h3 class="settings-title" style="margin: 0;">Fehlerprotokoll</h3>
+				<button class="icon-btn" id="clearErrorsBtn" style="color: #dc2626; border-color: #dc2626;">Löschen</button>
+			</div>
+			<div id="errorLogsList" style="max-height: 300px; overflow-y: auto;">
+				<p style="color: var(--muted); font-size: 14px; font-family: 'Inter', sans-serif;">Lade Fehlerprotokoll...</p>
 			</div>
 		</section>
 
@@ -435,11 +609,41 @@
 		</footer>
 	</div>
 
+	<!-- PDF Export Modal -->
+	<div class="modal-overlay" id="pdfModal">
+		<div class="modal">
+			<h2 class="modal-title">PDF exportieren</h2>
+			<div class="modal-form">
+				<div class="form-group">
+					<label for="pdfTitleInput">Titel</label>
+					<input type="text" id="pdfTitleInput" placeholder="z.B. Brand 1">
+				</div>
+				<div class="form-group">
+					<label>Sensor auswählen</label>
+					<div class="radio-group">
+						<div class="radio-option">
+							<input type="radio" name="sensorSelect" id="sensor1Radio" value="1" checked>
+							<label for="sensor1Radio">Sensor 1</label>
+						</div>
+						<div class="radio-option">
+							<input type="radio" name="sensorSelect" id="sensor2Radio" value="2">
+							<label for="sensor2Radio">Sensor 2</label>
+						</div>
+					</div>
+				</div>
+				<div class="modal-actions">
+					<button class="btn muted" id="cancelPdfBtn">Abbrechen</button>
+					<button class="btn" id="confirmPdfBtn">Exportieren</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<script>
 		const API_BASE = '/api';
 		const REFRESH_INTERVAL = 1000; // 1 second
 		const CHART_HISTORY_MINUTES = 10; // 10 minutes
-		
+
 		let chart = null;
 		let temperatureThreshold = 200;
 
@@ -448,11 +652,380 @@
 			await loadSettings();
 			updateCurrentValues();
 			setupChart();
+			loadErrorLogs();
 			setupEventListeners();
-			
+
 			// Auto-refresh
 			setInterval(updateCurrentValues, REFRESH_INTERVAL);
 			setInterval(updateChart, 5000); // Update chart every 5 seconds
+			setInterval(loadErrorLogs, 30000); // Update error logs every 30 seconds
+		}
+
+		// Show PDF export modal
+		function showPdfModal() {
+			// Load last used title from localStorage
+			const lastTitle = localStorage.getItem('pdfLastTitle');
+			if (lastTitle) {
+				document.getElementById('pdfTitleInput').value = lastTitle;
+			}
+			document.getElementById('pdfModal').classList.add('active');
+			document.getElementById('pdfTitleInput').focus();
+			document.getElementById('pdfTitleInput').select();
+		}
+
+		// Hide PDF export modal
+		function hidePdfModal() {
+			document.getElementById('pdfModal').classList.remove('active');
+		}
+
+		// Filter outliers and values below minimum temperature
+		function filterTemperatureData(data) {
+			const filtered = [];
+			let prevTemp1 = null;
+			let prevTemp2 = null;
+			let prevPrevTemp1 = null;
+			let prevPrevTemp2 = null;
+			const MIN_TEMP = 10.0;
+			const THRESHOLD_PERCENT = 0.25;
+
+			for (let i = 0; i < data.length; i++) {
+				const point = data[i];
+				let temp1 = point.avg_temp1;
+				let temp2 = point.avg_temp2;
+
+				// Handle sensor 1
+				if (temp1 !== -999) {
+					// Check minimum temperature
+					if (temp1 < MIN_TEMP) {
+						temp1 = prevTemp1 !== null ? prevTemp1 : -999;
+					}
+					// Check outlier (25% deviation)
+					else if (prevTemp1 !== null && prevTemp1 !== -999) {
+						const lowerBound = prevTemp1 * (1 - THRESHOLD_PERCENT);
+						const upperBound = prevTemp1 * (1 + THRESHOLD_PERCENT);
+
+						// If outside normal range
+						if (temp1 < lowerBound || temp1 > upperBound) {
+							// Check if it continues in the same direction
+							let allowChange = false;
+							if (prevPrevTemp1 !== null && prevPrevTemp1 !== -999) {
+								const prevTrend = prevTemp1 - prevPrevTemp1;
+								const currentTrend = temp1 - prevTemp1;
+								// Allow if both trends have the same sign
+								if ((prevTrend > 0 && currentTrend > 0) || (prevTrend < 0 && currentTrend < 0)) {
+									allowChange = true;
+								}
+							}
+
+							if (!allowChange) {
+								temp1 = prevTemp1;
+							}
+						}
+					}
+				}
+
+				// Handle sensor 2
+				if (temp2 !== -999) {
+					// Check minimum temperature
+					if (temp2 < MIN_TEMP) {
+						temp2 = prevTemp2 !== null ? prevTemp2 : -999;
+					}
+					// Check outlier (25% deviation)
+					else if (prevTemp2 !== null && prevTemp2 !== -999) {
+						const lowerBound = prevTemp2 * (1 - THRESHOLD_PERCENT);
+						const upperBound = prevTemp2 * (1 + THRESHOLD_PERCENT);
+
+						// If outside normal range
+						if (temp2 < lowerBound || temp2 > upperBound) {
+							// Check if it continues in the same direction
+							let allowChange = false;
+							if (prevPrevTemp2 !== null && prevPrevTemp2 !== -999) {
+								const prevTrend = prevTemp2 - prevPrevTemp2;
+								const currentTrend = temp2 - prevTemp2;
+								// Allow if both trends have the same sign
+								if ((prevTrend > 0 && currentTrend > 0) || (prevTrend < 0 && currentTrend < 0)) {
+									allowChange = true;
+								}
+							}
+
+							if (!allowChange) {
+								temp2 = prevTemp2;
+							}
+						}
+					}
+				}
+
+				// Update previous values
+				if (temp1 !== -999) {
+					prevPrevTemp1 = prevTemp1;
+					prevTemp1 = temp1;
+				}
+				if (temp2 !== -999) {
+					prevPrevTemp2 = prevTemp2;
+					prevTemp2 = temp2;
+				}
+
+				// Add filtered point
+				filtered.push({
+					...point,
+					avg_temp1: temp1,
+					avg_temp2: temp2
+				});
+			}
+
+			return filtered;
+		}
+
+		// Download chart as PDF
+		async function downloadChartAsPDF(pdfTitle, selectedSensor) {
+			// Fetch 4 hours of data to analyze threshold crossings
+			const response = await fetch(`${API_BASE}/history?hours=4`);
+			const allData = await response.json();
+
+			// Find threshold crossing times
+			let exceedTime = null;
+			let returnTime = null;
+			let wasAboveThreshold = false;
+
+			// Sort data by timestamp
+			const sortedData = allData.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+			// Apply filtering to remove outliers and values below 10°C
+			const filteredData = filterTemperatureData(sortedData);
+
+			const now = new Date();
+
+			// Use only the selected sensor for threshold detection
+			for (let i = 0; i < filteredData.length; i++) {
+				const d = filteredData[i];
+				const temp = selectedSensor === 1 ? d.avg_temp1 : d.avg_temp2;
+				if (temp === -999) continue;
+
+				if (!wasAboveThreshold && temp > temperatureThreshold && !exceedTime) {
+					exceedTime = new Date(d.timestamp);
+					wasAboveThreshold = true;
+				} else if (wasAboveThreshold && !returnTime) {
+					const stopThreshold = temperatureThreshold * 0.75;
+					if (temp < stopThreshold) {
+						returnTime = new Date(d.timestamp);
+						break;
+					}
+				}
+			}
+
+			// Create new chart with forward-counting x-axis
+			const tempCanvas = document.createElement('canvas');
+			tempCanvas.width = 1200;
+			tempCanvas.height = 400;
+			const tempCtx = tempCanvas.getContext('2d');
+
+			// Prepare data with minutes from start (time 0 = exceedTime, or first data point if no exceed)
+			const labels = [];
+			const tempData = [];
+
+			if (filteredData.length > 0) {
+				// Use exceedTime as time 0, or first data point if threshold wasn't exceeded
+				const zeroTime = exceedTime || new Date(filteredData[0].timestamp);
+
+				// Downsample data to reduce file size - keep every Nth point
+				const maxPoints = 300;
+				const step = Math.max(1, Math.floor(filteredData.length / maxPoints));
+
+				for (let i = 0; i < filteredData.length; i += step) {
+					const d = filteredData[i];
+					const timestamp = new Date(d.timestamp);
+					const minutesFromZero = ((timestamp - zeroTime) / 60000).toFixed(1);
+
+					labels.push(minutesFromZero);
+					// Get data for selected sensor only
+					const rawTemp = selectedSensor === 1 ? d.avg_temp1 : d.avg_temp2;
+					tempData.push(rawTemp === -999 ? null : Number(rawTemp));
+				}
+			}
+
+			// Create plugin to draw vertical lines
+			const verticalLinePlugin = {
+				id: 'verticalLines',
+				afterDatasetsDraw: (chart) => {
+					const ctx = chart.ctx;
+					const xAxis = chart.scales.x;
+					const yAxis = chart.scales.y;
+
+					const lineHeight = yAxis.bottom - yAxis.top;
+					const lineStartY = yAxis.top + lineHeight * 0.15;
+					const lineEndY = yAxis.bottom;
+
+					// Find the x position for time = 0
+					const zeroIndex = labels.findIndex(label => parseFloat(label) === 0);
+					if (zeroIndex !== -1) {
+						const xPos = xAxis.getPixelForValue(zeroIndex);
+						ctx.save();
+						ctx.strokeStyle = 'red';
+						ctx.lineWidth = 2;
+						ctx.beginPath();
+						ctx.moveTo(xPos, lineStartY);
+						ctx.lineTo(xPos, lineEndY);
+						ctx.stroke();
+						ctx.fillStyle = 'red';
+						ctx.font = 'bold 16px "Inter", sans-serif';
+						ctx.textAlign = 'center';
+						ctx.fillText('0', xPos, yAxis.top + 20);
+						ctx.restore();
+					}
+
+					// Find the x position for time = 25 minutes
+					const twentyFiveIndex = labels.findIndex(label => parseFloat(label) >= 25);
+					if (twentyFiveIndex !== -1) {
+						const xPos = xAxis.getPixelForValue(twentyFiveIndex);
+						ctx.save();
+						ctx.strokeStyle = 'red';
+						ctx.lineWidth = 2;
+						ctx.beginPath();
+						ctx.moveTo(xPos, lineStartY);
+						ctx.lineTo(xPos, lineEndY);
+						ctx.stroke();
+						ctx.fillStyle = 'red';
+						ctx.font = 'bold 16px "Inter", sans-serif';
+						ctx.textAlign = 'center';
+						ctx.fillText('25', xPos, yAxis.top + 20);
+						ctx.restore();
+					}
+				}
+			};
+
+			// Set color based on selected sensor
+			const sensorColor = selectedSensor === 1 ? '#d97706' : '#0891b2';
+			const sensorBgColor = selectedSensor === 1 ? 'rgba(217, 119, 6, 0.1)' : 'rgba(8, 145, 178, 0.1)';
+
+			// Create temporary chart with only the selected sensor
+			const tempChart = new Chart(tempCtx, {
+				type: 'line',
+				data: {
+					labels: labels,
+					datasets: [
+						{
+							label: `Sensor ${selectedSensor}`,
+							data: tempData,
+							borderColor: sensorColor,
+							backgroundColor: sensorBgColor,
+							borderWidth: 2,
+							fill: true,
+							tension: 0,
+							pointRadius: 0,
+							spanGaps: false,
+						}
+					]
+				},
+				options: {
+					responsive: false,
+					animation: false,
+					plugins: {
+						legend: { display: false }
+					},
+					scales: {
+						y: {
+							beginAtZero: false,
+							title: {
+								display: true,
+								text: 'Temperatur (°C)',
+								font: { family: '"Inter", sans-serif', size: 14, weight: '600' }
+							},
+							ticks: { font: { family: '"Playfair Display", serif', size: 14 } },
+							grid: { color: '#e5e7eb' }
+						},
+						x: {
+							title: {
+								display: true,
+								text: 'Brennzeit',
+								font: { family: '"Inter", sans-serif', size: 14, weight: '600' }
+							},
+							grid: { color: '#e5e7eb' },
+							ticks: {
+								font: { family: '"Playfair Display", serif', size: 14 },
+								maxRotation: 0,
+								autoSkip: true,
+								maxTicksLimit: 10,
+								callback: function(value, index, ticks) {
+									const label = this.getLabelForValue(value);
+									const numValue = parseFloat(label);
+									if (numValue < 0) return '';
+									return numValue.toFixed(2);
+								}
+							}
+						}
+					}
+				},
+				plugins: [verticalLinePlugin]
+			});
+
+			// Wait for chart to render
+			await new Promise(resolve => setTimeout(resolve, 100));
+
+			// Create a new canvas with extra space for the title and metadata
+			const exportCanvas = document.createElement('canvas');
+			const ctx = exportCanvas.getContext('2d');
+
+			const titleHeight = 200;
+			exportCanvas.width = tempCanvas.width;
+			exportCanvas.height = tempCanvas.height + titleHeight;
+
+			// Fill white background
+			ctx.fillStyle = '#ffffff';
+			ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+			// Draw the main title
+			ctx.fillStyle = '#111111';
+			ctx.font = 'bold 84px "Inter", sans-serif';
+			ctx.textAlign = 'center';
+			ctx.fillText(pdfTitle, exportCanvas.width / 2, 90);
+
+			// Draw the date and threshold info
+			ctx.font = '48px "Inter", sans-serif';
+			ctx.fillStyle = '#6b7280';
+			const dateStr = now.toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+			let metadataLine = `${dateStr}`;
+
+			if (exceedTime) {
+				const exceedTimeStr = exceedTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+				metadataLine += ` • Start: ${exceedTimeStr}`;
+
+				if (returnTime) {
+					const returnTimeStr = returnTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+					metadataLine += ` • Stop: ${returnTimeStr}`;
+				}
+			}
+
+			ctx.fillText(metadataLine, exportCanvas.width / 2, 155);
+
+			// Draw the chart below the title
+			ctx.drawImage(tempCanvas, 0, titleHeight);
+
+			// Clean up temporary chart
+			tempChart.destroy();
+
+			// Convert canvas to JPEG with compression to reduce file size
+			const imgData = exportCanvas.toDataURL('image/jpeg', 1.0);
+			const { jsPDF } = window.jspdf;
+
+			// Calculate PDF dimensions (A4 landscape)
+			const pdf = new jsPDF('landscape', 'mm', 'a4');
+			const pdfWidth = pdf.internal.pageSize.getWidth();
+			const pdfHeight = pdf.internal.pageSize.getHeight();
+
+			// Calculate image dimensions to fit PDF while maintaining aspect ratio
+			const imgWidth = pdfWidth - 20;
+			const imgHeight = (exportCanvas.height * imgWidth) / exportCanvas.width;
+
+			// Center the image vertically if it's smaller than the page
+			const yOffset = imgHeight < pdfHeight ? (pdfHeight - imgHeight) / 2 : 10;
+
+			pdf.addImage(imgData, 'JPEG', 10, yOffset, imgWidth, imgHeight);
+
+			// Download
+			const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+			const filename = `${pdfTitle.replace(/\s+/g, '_')}_${timestamp}.pdf`;
+			pdf.save(filename);
 		}
 
 		// Load current temperature values
@@ -460,25 +1033,49 @@
 			try {
 				const response = await fetch(`${API_BASE}/current`);
 				if (!response.ok) throw new Error('Failed to fetch current data');
-				
+
 				const data = await response.json();
-				const timestamp = new Date(data.timestamp);
-				
+
+				// Check if we have any data (avg_temp1 and avg_temp2 are both 0.0 means no data)
+				const hasData = data.avg_temp1 !== 0.0 || data.avg_temp2 !== 0.0;
+				const timestamp = hasData ? new Date(data.timestamp) : null;
+
 				// Update Sensor 1
-				const temp1 = parseFloat(data.avg_temp1).toFixed(2);
-				document.getElementById('temp1Value').textContent = temp1 + '°C';
-				document.getElementById('temp1Time').textContent = formatTime(timestamp);
-				
+				const temp1 = data.avg_temp1 === -999 ? null : parseFloat(data.avg_temp1);
+				if (!hasData || (temp1 === 0.0 && data.avg_temp2 === 0.0)) {
+					document.getElementById('temp1Value').textContent = '--';
+					document.getElementById('temp1Time').textContent = '--';
+				} else if (temp1 === null) {
+					document.getElementById('temp1Value').textContent = 'FEHLER';
+					document.getElementById('temp1Time').textContent = 'Sensor ausgefallen';
+				} else {
+					document.getElementById('temp1Value').textContent = temp1.toFixed(2) + '°C';
+					document.getElementById('temp1Time').textContent = formatTime(timestamp);
+				}
+
 				// Update Sensor 2
-				const temp2 = parseFloat(data.avg_temp2).toFixed(2);
-				document.getElementById('temp2Value').textContent = temp2 + '°C';
-				document.getElementById('temp2Time').textContent = formatTime(timestamp);
-				
-				// Check thresholds
-				updateCardWarning('temp1Card', parseFloat(temp1));
-				updateCardWarning('temp2Card', parseFloat(temp2));
+				const temp2 = data.avg_temp2 === -999 ? null : parseFloat(data.avg_temp2);
+				if (!hasData || (temp2 === 0.0 && data.avg_temp1 === 0.0)) {
+					document.getElementById('temp2Value').textContent = '--';
+					document.getElementById('temp2Time').textContent = '--';
+				} else if (temp2 === null) {
+					document.getElementById('temp2Value').textContent = 'FEHLER';
+					document.getElementById('temp2Time').textContent = 'Sensor ausgefallen';
+				} else {
+					document.getElementById('temp2Value').textContent = temp2.toFixed(2) + '°C';
+					document.getElementById('temp2Time').textContent = formatTime(timestamp);
+				}
+
+				// Check thresholds (ignore failed sensors)
+				if (hasData && temp1 !== null) updateCardWarning('temp1Card', temp1);
+				if (hasData && temp2 !== null) updateCardWarning('temp2Card', temp2);
 			} catch (error) {
 				console.error('Error fetching current values:', error);
+				// On error, show "--"
+				document.getElementById('temp1Value').textContent = '--';
+				document.getElementById('temp1Time').textContent = '--';
+				document.getElementById('temp2Value').textContent = '--';
+				document.getElementById('temp2Time').textContent = '--';
 			}
 		}
 
@@ -533,15 +1130,15 @@
 			if (!confirm('Sind Sie sicher, dass Sie alle Daten löschen möchten? Dies kann nicht rückgängig gemacht werden.')) {
 				return;
 			}
-			
+
 			try {
 				const response = await fetch(`${API_BASE}/clear`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' }
 				});
-				
+
 				if (!response.ok) throw new Error('Failed to clear database');
-				
+
 				const data = await response.json();
 				alert(`Datenbank gelöscht! ${data.deleted_records} Einträge wurden entfernt.`);
 				updateChart();
@@ -551,6 +1148,137 @@
 			}
 		}
 
+		// Load error logs
+		async function loadErrorLogs() {
+			try {
+				const response = await fetch(`${API_BASE}/errors?hours=24`);
+				if (!response.ok) throw new Error('Failed to fetch error logs');
+
+				const errors = await response.json();
+				const container = document.getElementById('errorLogsList');
+
+				if (errors.length === 0) {
+					container.innerHTML = '<p style="color: var(--muted); font-size: 14px; font-family: \'Inter\', sans-serif;">Keine Fehler in den letzten 24 Stunden</p>';
+					return;
+				}
+
+				let html = '';
+				errors.forEach(error => {
+					const timestamp = new Date(error.timestamp);
+					const timeStr = timestamp.toLocaleString('de-DE', {
+						year: 'numeric',
+						month: '2-digit',
+						day: '2-digit',
+						hour: '2-digit',
+						minute: '2-digit',
+						second: '2-digit'
+					});
+
+					html += `
+						<div style="padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 8px; background: #fffbeb;">
+							<div style="font-size: 12px; color: var(--muted); font-family: 'Inter', sans-serif; margin-bottom: 4px;">
+								${timeStr}
+							</div>
+							<div style="font-size: 14px; color: var(--text); font-family: 'Inter', sans-serif;">
+								${error.message}
+							</div>
+						</div>
+					`;
+				});
+
+				container.innerHTML = html;
+			} catch (error) {
+				console.error('Error loading error logs:', error);
+			}
+		}
+
+		// Clear error logs
+		async function clearErrorLogs() {
+			if (!confirm('Möchten Sie alle Fehlerprotokolle löschen?')) {
+				return;
+			}
+
+			try {
+				const response = await fetch(`${API_BASE}/errors/clear`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' }
+				});
+
+				if (!response.ok) throw new Error('Failed to clear error logs');
+
+				const data = await response.json();
+				alert(`Fehlerprotokolle gelöscht! ${data.deleted_records} Einträge wurden entfernt.`);
+				loadErrorLogs();
+			} catch (error) {
+				console.error('Error clearing error logs:', error);
+				alert('Fehler beim Löschen: ' + error.message);
+			}
+		}
+
+		// Create plugin to draw vertical lines for live chart
+		const liveVerticalLinePlugin = {
+			id: 'liveVerticalLines',
+			afterDatasetsDraw: (chart) => {
+				const ctx = chart.ctx;
+				const xAxis = chart.scales.x;
+				const yAxis = chart.scales.y;
+				const labels = chart.data.labels;
+
+				console.log('Live Plugin - All labels:', labels);
+				console.log('Live Plugin - Labels as numbers:', labels.map(l => parseFloat(l)));
+
+				const lineHeight = yAxis.bottom - yAxis.top;
+				const lineStartY = yAxis.top + lineHeight * 0.15; // Start 15% from top
+				const lineEndY = yAxis.bottom; // End at bottom (y=0)
+
+				// Find the x position for time = 0
+				const zeroIndex = labels.findIndex(label => parseFloat(label) === 0);
+				console.log('Live Plugin - zeroIndex:', zeroIndex);
+				if (zeroIndex !== -1) {
+					const xPos = xAxis.getPixelForValue(zeroIndex);
+					console.log('Live Plugin - Drawing line at x=0, xPos:', xPos);
+					ctx.save();
+					ctx.strokeStyle = 'red';
+					ctx.lineWidth = 2;
+					ctx.beginPath();
+					ctx.moveTo(xPos, lineStartY);
+					ctx.lineTo(xPos, lineEndY);
+					ctx.stroke();
+
+					// Add label "0"
+					ctx.fillStyle = 'red';
+					ctx.font = 'bold 14px "Inter", sans-serif';
+					ctx.textAlign = 'center';
+					ctx.fillText('0', xPos, yAxis.top + 18);
+
+					ctx.restore();
+				}
+
+				// Find the x position for time = 25 minutes
+				const twentyFiveIndex = labels.findIndex(label => parseFloat(label) >= 25);
+				console.log('Live Plugin - twentyFiveIndex:', twentyFiveIndex);
+				if (twentyFiveIndex !== -1) {
+					const xPos = xAxis.getPixelForValue(twentyFiveIndex);
+					console.log('Live Plugin - Drawing line at x=25, xPos:', xPos);
+					ctx.save();
+					ctx.strokeStyle = 'red';
+					ctx.lineWidth = 2;
+					ctx.beginPath();
+					ctx.moveTo(xPos, lineStartY);
+					ctx.lineTo(xPos, lineEndY);
+					ctx.stroke();
+
+					// Add label "25"
+					ctx.fillStyle = 'red';
+					ctx.font = 'bold 14px "Inter", sans-serif';
+					ctx.textAlign = 'center';
+					ctx.fillText('25', xPos, yAxis.top + 18);
+
+					ctx.restore();
+				}
+			}
+		};
+
 		// Setup Chart
 		async function setupChart() {
 			try {
@@ -559,10 +1287,10 @@
 					console.error('❌ Canvas element not found!');
 					return;
 				}
-				
+
 				console.log('✓ Initializing chart...');
 				const ctx = canvas.getContext('2d');
-				
+
 				chart = new Chart(ctx, {
 					type: 'line',
 					data: {
@@ -575,9 +1303,10 @@
 								backgroundColor: 'rgba(217, 119, 6, 0.1)',
 								borderWidth: 2,
 								fill: true,
-								tension: 0.4,
+								tension: 0,
 								pointRadius: 0,
 								pointHoverRadius: 6,
+								spanGaps: false,
 							},
 							{
 								label: 'Sensor 2',
@@ -586,9 +1315,10 @@
 								backgroundColor: 'rgba(8, 145, 178, 0.1)',
 								borderWidth: 2,
 								fill: true,
-								tension: 0.4,
+								tension: 0,
 								pointRadius: 0,
 								pointHoverRadius: 6,
+								spanGaps: false,
 							}
 						]
 					},
@@ -597,7 +1327,12 @@
 						maintainAspectRatio: false,
 						plugins: {
 							legend: {
-								display: false
+								display: true,
+								position: 'top',
+								labels: {
+									usePointStyle: true,
+									font: { family: '"Inter", sans-serif', size: 12 }
+								}
 							},
 							filler: {
 								propagate: false
@@ -616,14 +1351,15 @@
 							},
 							x: {
 								grid: { color: '#e5e7eb' },
-								ticks: { 
+								ticks: {
 									font: { family: '"Playfair Display", serif' },
 									maxRotation: 45,
 									minRotation: 0
 								}
 							}
 						}
-					}
+					},
+					plugins: [liveVerticalLinePlugin]
 				});
 				
 				console.log('✓ Chart instance created, fetching data...');
@@ -640,55 +1376,89 @@
 				// Fetch 1 hour of data
 				const response = await fetch(`${API_BASE}/history?hours=1`);
 				if (!response.ok) throw new Error('Failed to fetch history');
-				
+
 				const allData = await response.json();
 				console.log('✓ Fetched data points:', allData.length);
-				
+
 				if (!allData || allData.length === 0) {
 					console.warn('No data returned from API');
 					return;
 				}
-				
-				// Filter to only last 10 minutes
+
+				// Sort data by timestamp
+				const sortedData = allData.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+				// Apply filtering to remove outliers and values below 10°C
+				const filteredData = filterTemperatureData(sortedData);
+
+				// Find when BOTH temperatures first exceeded threshold
+				let exceedTime = null;
+				for (let i = 0; i < filteredData.length; i++) {
+					const d = filteredData[i];
+					const temp1 = d.avg_temp1 === -999 ? null : d.avg_temp1;
+					const temp2 = d.avg_temp2 === -999 ? null : d.avg_temp2;
+
+					// Check if BOTH sensors (if both are working) exceed threshold
+					let bothAboveThreshold = false;
+					if (temp1 !== null && temp2 !== null) {
+						// Both sensors working: both must exceed threshold
+						bothAboveThreshold = (temp1 > temperatureThreshold && temp2 > temperatureThreshold);
+					} else if (temp1 !== null || temp2 !== null) {
+						// Only one sensor working: that sensor must exceed threshold
+						const workingTemp = temp1 !== null ? temp1 : temp2;
+						bothAboveThreshold = workingTemp > temperatureThreshold;
+					}
+
+					if (bothAboveThreshold) {
+						exceedTime = new Date(d.timestamp);
+						break;
+					}
+				}
+
+				// Use exceedTime as time 0, or first data point if threshold wasn't exceeded
+				const zeroTime = exceedTime || new Date(filteredData[0].timestamp);
+				console.log('✓ Zero time set to:', zeroTime);
+
 				const now = new Date();
-				const tenMinutesAgo = new Date(now.getTime() - CHART_HISTORY_MINUTES * 60000);
-				
-				const data = allData.filter(d => {
+				const tenMinutesAgo = new Date(now.getTime() - CHART_HISTORY_MINUTES * 600000);
+
+				const data = filteredData.filter(d => {
 					const timestamp = new Date(d.timestamp);
 					return timestamp >= tenMinutesAgo;
 				});
-				
+
 				console.log('✓ Filtered to last 10 minutes:', data.length, 'points');
-				
+
 				if (data.length === 0) {
 					console.warn('No data in the last 10 minutes');
 					return;
 				}
-				
-				// Create labels and data arrays
+
+				// Create labels and data arrays with minutes from zero time
 				const labels = [];
 				const temp1Data = [];
 				const temp2Data = [];
-				
+
 				for (let i = 0; i < data.length; i++) {
 					const d = data[i];
 					try {
 						const timestamp = new Date(d.timestamp);
-						const minutesAgo = Math.round((now - timestamp) / 60000);
-						
-						labels.push(`-${minutesAgo}`);
-						temp1Data.push(Number(d.avg_temp1));
-						temp2Data.push(Number(d.avg_temp2));
+						const minutesFromZero = ((timestamp - zeroTime) / 60000).toFixed(1);
+
+						labels.push(minutesFromZero);
+						// Replace -999 (failed sensor) with null to break the line
+						temp1Data.push(d.avg_temp1 === -999 ? null : Number(d.avg_temp1));
+						temp2Data.push(d.avg_temp2 === -999 ? null : Number(d.avg_temp2));
 					} catch (e) {
 						console.error('Error processing data point:', d, e);
 					}
 				}
-				
+
 				console.log('✓ Processed data - Points:', labels.length);
 				console.log('  Labels (first 5):', labels.slice(0, 5));
 				console.log('  T1 data (first 5):', temp1Data.slice(0, 5));
 				console.log('  T2 data (first 5):', temp2Data.slice(0, 5));
-				
+
 				if (labels.length > 0) {
 					chart.data.labels = labels;
 					chart.data.datasets[0].data = temp1Data;
@@ -705,9 +1475,34 @@
 		function setupEventListeners() {
 			document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
 			document.getElementById('clearDbBtn').addEventListener('click', clearDatabase);
-			
+			document.getElementById('clearErrorsBtn').addEventListener('click', clearErrorLogs);
+
 			document.getElementById('thresholdInput').addEventListener('keypress', (e) => {
 				if (e.key === 'Enter') saveSettings();
+			});
+
+			// PDF export modal
+			document.getElementById('savePdfBtn').addEventListener('click', showPdfModal);
+			document.getElementById('cancelPdfBtn').addEventListener('click', hidePdfModal);
+			document.getElementById('confirmPdfBtn').addEventListener('click', () => {
+				const title = document.getElementById('pdfTitleInput').value.trim() || 'Export';
+				const selectedSensor = parseInt(document.querySelector('input[name="sensorSelect"]:checked').value);
+				// Save title for next time
+				localStorage.setItem('pdfLastTitle', title);
+				hidePdfModal();
+				downloadChartAsPDF(title, selectedSensor);
+			});
+
+			// Close modal on overlay click
+			document.getElementById('pdfModal').addEventListener('click', (e) => {
+				if (e.target.id === 'pdfModal') hidePdfModal();
+			});
+
+			// Handle Enter key in title input
+			document.getElementById('pdfTitleInput').addEventListener('keypress', (e) => {
+				if (e.key === 'Enter') {
+					document.getElementById('confirmPdfBtn').click();
+				}
 			});
 		}
 

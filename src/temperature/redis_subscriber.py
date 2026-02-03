@@ -4,10 +4,10 @@ import threading
 import asyncio
 from datetime import datetime
 from typing import Callable
-import logging
 import os
+from .logging_config import get_logger, log_redis_message
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "redis")
 
 
 class RedisSubscriber:
@@ -45,10 +45,30 @@ class RedisSubscriber:
             )
             # Test connection
             self.redis_client.ping()
-            logger.info("✓ Connected to Redis")
+            logger.info(
+                "Connected to Redis successfully",
+                extra={
+                    "operation": "redis_connect",
+                    "redis_host": self.host,
+                    "redis_port": self.port,
+                    "redis_db": self.db,
+                    "success": True
+                }
+            )
             return True
         except Exception as e:
-            logger.error(f"✗ Failed to connect to Redis: {e}")
+            logger.error(
+                "Failed to connect to Redis",
+                extra={
+                    "operation": "redis_connect",
+                    "redis_host": self.host,
+                    "redis_port": self.port,
+                    "redis_db": self.db,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "success": False
+                }
+            )
             return False
 
     def set_message_callback(self, callback: Callable):
@@ -58,7 +78,13 @@ class RedisSubscriber:
     def start(self):
         """Start listening to Redis channel in background thread"""
         if self.running:
-            logger.warning("Subscriber already running")
+            logger.warning(
+                "Redis subscriber already running",
+                extra={
+                    "operation": "redis_start",
+                    "already_running": True
+                }
+            )
             return
 
         if not self.redis_client:
@@ -68,7 +94,14 @@ class RedisSubscriber:
         self.running = True
         self.thread = threading.Thread(target=self._listen_loop, daemon=True)
         self.thread.start()
-        logger.info(f"✓ Subscribed to channel: {self.channel}")
+        logger.info(
+            "Redis subscriber started",
+            extra={
+                "operation": "redis_start",
+                "redis_channel": self.channel,
+                "success": True
+            }
+        )
 
     def _listen_loop(self):
         """Main listening loop (runs in background thread)"""
@@ -76,20 +109,23 @@ class RedisSubscriber:
             self.pubsub = self.redis_client.pubsub()
             self.pubsub.subscribe(self.channel)
 
+            logger.info(
+                "Redis listening loop started",
+                extra={
+                    "operation": "redis_listen_start",
+                    "redis_channel": self.channel
+                }
+            )
+
             for message in self.pubsub.listen():
                 if not self.running:
                     break
 
-                print(message)
-
                 if message["type"] == "message":
                     try:
                         data = json.loads(message["data"])
-                        timestamp = datetime.now().isoformat()
-
-                        logger.info(
-                            f"[{timestamp}] Received: {data}"
-                        )
+                        
+                        log_redis_message(self.channel, data, success=True)
 
                         if self.on_message_callback:
                             # Handle both sync and async callbacks
@@ -97,18 +133,58 @@ class RedisSubscriber:
                                 asyncio.run(self.on_message_callback(data))
                             else:
                                 self.on_message_callback(data)
-                    except json.JSONDecodeError:
-                        logger.error(f"Invalid JSON: {message['data']}")
+                    except json.JSONDecodeError as e:
+                        logger.error(
+                            "Invalid JSON received from Redis",
+                            extra={
+                                "operation": "redis_message_decode",
+                                "redis_channel": self.channel,
+                                "raw_data": message["data"],
+                                "error": str(e),
+                                "error_type": "JSONDecodeError"
+                            }
+                        )
+                        log_redis_message(self.channel, {"raw": message["data"]}, success=False)
                     except Exception as e:
-                        logger.error(f"Error processing message: {e}")
+                        logger.error(
+                            "Error processing Redis message",
+                            extra={
+                                "operation": "redis_message_process",
+                                "redis_channel": self.channel,
+                                "error": str(e),
+                                "error_type": type(e).__name__
+                            }
+                        )
         except Exception as e:
-            logger.error(f"Listening loop error: {e}")
+            logger.error(
+                "Redis listening loop error",
+                extra={
+                    "operation": "redis_listen_loop",
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "redis_channel": self.channel
+                }
+            )
         finally:
             if self.pubsub:
                 self.pubsub.unsubscribe(self.channel)
+                logger.info(
+                    "Unsubscribed from Redis channel",
+                    extra={
+                        "operation": "redis_unsubscribe",
+                        "redis_channel": self.channel
+                    }
+                )
 
     def stop(self):
         """Stop listening to Redis channel"""
+        logger.info(
+            "Stopping Redis subscriber",
+            extra={
+                "operation": "redis_stop",
+                "redis_channel": self.channel
+            }
+        )
         self.running = False
         if self.thread:
             self.thread.join(timeout=5)
@@ -116,4 +192,10 @@ class RedisSubscriber:
             self.pubsub.close()
         if self.redis_client:
             self.redis_client.close()
-        logger.info("✓ Disconnected from Redis")
+        logger.info(
+            "Redis subscriber stopped",
+            extra={
+                "operation": "redis_stop_complete",
+                "redis_channel": self.channel
+            }
+        )
